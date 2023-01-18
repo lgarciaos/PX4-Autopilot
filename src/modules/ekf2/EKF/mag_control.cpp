@@ -138,7 +138,7 @@ void Ekf::controlMagFusion()
 					_state.quat_nominal = _R_to_earth;
 
 					// reset the output predictor state history to match the EKF initial values
-					_output_predictor.alignOutputFilter(_state.quat_nominal, _state.vel, _state.pos);
+					_output_predictor.resetQuaternion(_state.quat_nominal);
 
 					// set the earth magnetic field states using the updated rotation
 					_state.mag_I = _R_to_earth * _mag_lpf.getState();

@@ -71,7 +71,7 @@ void Ekf::resetHorizontalVelocityTo(const Vector2f &new_horz_vel, const Vector2f
 		P.uncorrelateCovarianceSetVariance<1>(5, math::max(sq(0.01f), new_horz_vel_var(1)));
 	}
 
-	_output_predictor.resetHorizontalVelocityTo(delta_horz_vel);
+	_output_predictor.resetHorizontalVelocityTo(new_horz_vel);
 
 	// record the state change
 	if (_state_reset_status.reset_count.velNE == _state_reset_count_prev.velNE) {
@@ -97,7 +97,7 @@ void Ekf::resetVerticalVelocityTo(float new_vert_vel, float new_vert_vel_var)
 		P.uncorrelateCovarianceSetVariance<1>(6, math::max(sq(0.01f), new_vert_vel_var));
 	}
 
-	_output_predictor.resetVerticalVelocityTo(delta_vert_vel);
+	_output_predictor.resetVerticalVelocityTo(new_vert_vel);
 
 	// record the state change
 	if (_state_reset_status.reset_count.velD == _state_reset_count_prev.velD) {
@@ -137,7 +137,7 @@ void Ekf::resetHorizontalPositionTo(const Vector2f &new_horz_pos, const Vector2f
 		P.uncorrelateCovarianceSetVariance<1>(8, math::max(sq(0.01f), new_horz_pos_var(1)));
 	}
 
-	_output_predictor.resetHorizontalPositionTo(delta_horz_pos);
+	_output_predictor.resetHorizontalPositionTo(new_horz_pos);
 
 	// record the state change
 	if (_state_reset_status.reset_count.posNE == _state_reset_count_prev.posNE) {
@@ -170,7 +170,7 @@ bool Ekf::isHeightResetRequired() const
 
 void Ekf::resetVerticalPositionTo(const float new_vert_pos, float new_vert_pos_var)
 {
-	const float old_vert_pos = _state.pos(2);
+	const float delta_z = new_vert_pos - _state.pos(2);
 	_state.pos(2) = new_vert_pos;
 
 	if (PX4_ISFINITE(new_vert_pos_var)) {
@@ -178,11 +178,9 @@ void Ekf::resetVerticalPositionTo(const float new_vert_pos, float new_vert_pos_v
 		P.uncorrelateCovarianceSetVariance<1>(9, math::max(sq(0.01f), new_vert_pos_var));
 	}
 
-	const float delta_z = new_vert_pos - old_vert_pos;
-
 	// apply the change in height / height rate to our newest height / height rate estimate
 	// which have already been taken out from the output buffer
-	_output_predictor.resetVerticalPositionTo(new_vert_pos, delta_z);
+	_output_predictor.resetVerticalPositionTo(new_vert_pos);
 
 	// record the state change
 	if (_state_reset_status.reset_count.posD == _state_reset_count_prev.posD) {
@@ -1302,8 +1300,11 @@ void Ekf::resetQuatStateYaw(float yaw, float yaw_variance)
 		increaseQuatYawErrVariance(yaw_variance);
 	}
 
+	// apply change to velocity state
+	_state.vel = q_error.rotateVector(_state.vel);
+
 	// add the reset amount to the output observer buffered data
-	_output_predictor.resetQuaternion(q_error);
+	_output_predictor.resetQuaternion(quat_after_reset);
 
 	// record the state change
 	if (_state_reset_status.reset_count.quat == _state_reset_count_prev.quat) {
