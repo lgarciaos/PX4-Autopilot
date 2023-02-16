@@ -39,7 +39,7 @@
  */
 
 #include "ControlAllocationSequentialDesaturation.hpp"
-
+#include "mathlib/mathlib.h"
 
 void
 ControlAllocationSequentialDesaturation::allocate()
@@ -51,7 +51,7 @@ ControlAllocationSequentialDesaturation::allocate()
 
 	switch (_param_mc_airmode.get()) {
 	case 1:
-		mixAirmodeRP();
+		mix(1.f, 0.f);
 		break;
 
 	case 2:
@@ -59,26 +59,24 @@ ControlAllocationSequentialDesaturation::allocate()
 		break;
 
 	default:
-		mixAirmodeDisabled();
+		mix(0.f, 0.f);
 		break;
 	}
 }
 
 void ControlAllocationSequentialDesaturation::desaturateActuators(
 	ActuatorVector &actuator_sp,
-	const ActuatorVector &desaturation_vector, bool increase_only)
+	const ActuatorVector &desaturation_vector, float increase_limit)
 {
 	float gain = computeDesaturationGain(desaturation_vector, actuator_sp);
-
-	if (increase_only && gain < 0.f) {
-		return;
-	}
+	ActuatorVector u1 = actuator_sp;
 
 	for (int i = 0; i < _num_actuators; i++) {
-		actuator_sp(i) += gain * desaturation_vector(i);
+		u1(i) += gain * desaturation_vector(i);
 	}
 
-	gain = 0.5f * computeDesaturationGain(desaturation_vector, actuator_sp);
+	gain += 0.5f * computeDesaturationGain(desaturation_vector, u1);
+	gain = math::max(gain, -increase_limit);
 
 	for (int i = 0; i < _num_actuators; i++) {
 		actuator_sp(i) += gain * desaturation_vector(i);
@@ -92,7 +90,7 @@ float ControlAllocationSequentialDesaturation::computeDesaturationGain(const Act
 	float k_max = 0.f;
 
 	for (int i = 0; i < _num_actuators; i++) {
-		// Do not use try to desaturate using an actuator with weak effectiveness to avoid large desaturation gains
+		// Do not try to desaturate using an actuator with weak effectiveness to avoid large desaturation gains
 		if (fabsf(desaturation_vector(i)) < 0.2f) {
 			continue;
 		}
@@ -116,6 +114,32 @@ float ControlAllocationSequentialDesaturation::computeDesaturationGain(const Act
 
 	// Reduce the saturation as much as possible
 	return k_min + k_max;
+}
+
+void ControlAllocationSequentialDesaturation::mix(float roll_pitch_limit, float yaw_limit)
+{
+	ActuatorVector roll;
+	ActuatorVector pitch;
+	ActuatorVector yaw;
+	ActuatorVector thrust_z;
+
+	for (int i = 0; i < _num_actuators; i++) {
+		_actuator_sp(i) = _actuator_trim(i) +
+				  _mix(i, ControlAxis::ROLL) * (_control_sp(ControlAxis::ROLL) - _control_trim(ControlAxis::ROLL)) +
+				  _mix(i, ControlAxis::PITCH) * (_control_sp(ControlAxis::PITCH) - _control_trim(ControlAxis::PITCH)) +
+				  _mix(i, ControlAxis::THRUST_X) * (_control_sp(ControlAxis::THRUST_X) - _control_trim(ControlAxis::THRUST_X)) +
+				  _mix(i, ControlAxis::THRUST_Y) * (_control_sp(ControlAxis::THRUST_Y) - _control_trim(ControlAxis::THRUST_Y)) +
+				  _mix(i, ControlAxis::THRUST_Z) * (_control_sp(ControlAxis::THRUST_Z) - _control_trim(ControlAxis::THRUST_Z));
+		roll(i) = _mix(i, ControlAxis::ROLL);
+		pitch(i) = _mix(i, ControlAxis::PITCH);
+		yaw(i) = _mix(i, ControlAxis::YAW);
+		thrust_z(i) = _mix(i, ControlAxis::THRUST_Z);
+	}
+
+	desaturateActuators(_actuator_sp, thrust_z, roll_pitch_limit);
+	desaturateActuators(_actuator_sp, roll);
+	desaturateActuators(_actuator_sp, pitch);
+	mixYaw(yaw_limit);
 }
 
 void
@@ -193,7 +217,7 @@ ControlAllocationSequentialDesaturation::mixAirmodeDisabled()
 	}
 
 	// only reduce thrust
-	desaturateActuators(_actuator_sp, thrust_z, true);
+	desaturateActuators(_actuator_sp, thrust_z, 0.f);
 
 	// Reduce roll/pitch acceleration if needed to unsaturate
 	desaturateActuators(_actuator_sp, roll);
@@ -204,7 +228,7 @@ ControlAllocationSequentialDesaturation::mixAirmodeDisabled()
 }
 
 void
-ControlAllocationSequentialDesaturation::mixYaw()
+ControlAllocationSequentialDesaturation::mixYaw(float yaw_limit)
 {
 	// Add yaw to outputs
 	ActuatorVector yaw;
@@ -224,7 +248,7 @@ ControlAllocationSequentialDesaturation::mixYaw()
 	_actuator_max = max_prev;
 
 	// reduce thrust only
-	desaturateActuators(_actuator_sp, thrust_z, true);
+	desaturateActuators(_actuator_sp, thrust_z, yaw_limit);
 }
 
 void
