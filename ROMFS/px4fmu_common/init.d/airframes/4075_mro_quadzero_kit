@@ -1,0 +1,42 @@
+#!/bin/sh
+#
+# @name mRo Quad Zero Kit
+#
+# @type Quadrotor x
+# @class Copter
+#
+# @maintainer Leonardo Garcia <leonardo@mrobotics.io>
+#
+
+. ${R}etc/init.d/rc.mc_defaults
+
+param set-default CA_ROTOR_COUNT 4
+param set-default CA_ROTOR2_KM -0.05
+param set-default CA_ROTOR3_KM -0.05
+
+param set-default BAT1_A_PER_V 35.0000
+param set-default BAT1_V_DIV 6.5000
+param set-default BAT1_V_EMPTY 2.9000
+param set-default BAT_AVRG_CURRENT 5.0000
+param set-default BAT_CRIT_THR 0.1100
+param set-default BAT_LOW_THR 0.2000
+param set-default CA_ROTOR0_PX 0.1800
+param set-default CA_ROTOR0_PY 0.1800
+param set-default CA_ROTOR1_PX -0.1800
+param set-default CA_ROTOR1_PY -0.1800
+param set-default CA_ROTOR2_PX 0.1800
+param set-default CA_ROTOR2_PY -0.1800
+param set-default CA_ROTOR3_PX -0.1800
+param set-default CA_ROTOR3_PY 0.1800
+param set-default DSHOT_CONFIG 600
+param set-default MAV_0_CONFIG 102
+param set-default PWM_AUX_OUT 1234
+param set-default PWM_MAIN_FUNC1 103
+param set-default PWM_MAIN_FUNC2 102
+param set-default PWM_MAIN_FUNC3 101
+param set-default PWM_MAIN_FUNC4 104
+param set-default PWM_MAIN_OUT 1234
+param set-default PWM_MAIN_TIM0 -4
+param set-default SENS_EN_VL53L1X 1
+param set-default SER_TEL2_BAUD 115200
+param set-default SYS_CTRL_ALLOC 1
